@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const authRoutes = require("./routes/auth");
+const userRoutes = require("./routes/users");
 const hospitalRoutes = require("./routes/hospitals");
 const doctorRoutes = require("./routes/doctors");
 const permissionRoutes = require("./routes/permissions");
@@ -50,6 +51,7 @@ app.get("/health", async (req, res) => {
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api/hospitals", hospitalRoutes);
 app.use("/api/doctors", doctorRoutes);
 app.use("/api/permissions", permissionRoutes);
