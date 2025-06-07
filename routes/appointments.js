@@ -18,7 +18,7 @@ router.get("/", authMiddleware, async (req, res) => {
       {
         model: db.Doctor,
         as: "doctor",
-        attributes: ["id", "name", "specialization"],
+        attributes: ["id", "name", "specialty"],
       },
       {
         model: db.Hospital,
@@ -30,7 +30,10 @@ router.get("/", authMiddleware, async (req, res) => {
     // Filter based on user role
     if (req.user.role === "user") {
       whereClause.userId = req.user.id;
-    } else if (req.user.role === "hospital_admin") {
+    } else if (
+      req.user.role === "hospital_admin" ||
+      req.user.role === "admin"
+    ) {
       // Hospital admin can see appointments for their hospital
       const hospital = await db.Hospital.findOne({
         where: { adminId: req.user.id },
@@ -126,7 +129,7 @@ router.post("/", authMiddleware, async (req, res) => {
         {
           model: db.Doctor,
           as: "doctor",
-          attributes: ["id", "name", "specialization"],
+          attributes: ["id", "name", "specialty"],
         },
         {
           model: db.Hospital,
@@ -270,7 +273,7 @@ router.get("/:id", authMiddleware, async (req, res) => {
         {
           model: db.Doctor,
           as: "doctor",
-          attributes: ["id", "name", "specialization"],
+          attributes: ["id", "name", "specialty"],
         },
         {
           model: db.Hospital,

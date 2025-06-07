@@ -1,23 +1,72 @@
 const express = require("express");
+const { Op, literal } = require("sequelize");
 const { Hospital, Review, Doctor } = require("../models");
 const authMiddleware = require("../middleware/auth");
+const roleAuth = require("../middleware/roleAuth");
 const router = express.Router();
 
-// Get all hospitals
+// Get all hospitals with optional radius search
 router.get("/", async (req, res) => {
   try {
+    const { latitude, longitude, radius } = req.query;
+    let whereClause = {};
+
+    // If coordinates and radius are provided, add distance calculation
+    if (latitude && longitude && radius) {
+      const lat = parseFloat(latitude);
+      const lng = parseFloat(longitude);
+      const rad = parseFloat(radius);
+
+      // Haversine formula for distance calculation
+      const distanceFormula = literal(
+        `(
+          6371 * acos(
+            cos(radians(${lat})) * 
+            cos(radians(latitude)) * 
+            cos(radians(longitude) - radians(${lng})) + 
+            sin(radians(${lat})) * 
+            sin(radians(latitude))
+          )
+        )`
+      );
+
+      whereClause = {
+        [Op.and]: literal(`(
+          6371 * acos(
+            cos(radians(${lat})) * 
+            cos(radians(latitude)) * 
+            cos(radians(longitude) - radians(${lng})) + 
+            sin(radians(${lat})) * 
+            sin(radians(latitude))
+          )
+        ) <= ${rad}`),
+      };
+    }
+
     const hospitals = await Hospital.findAll({
-      include: [
-        {
-          model: Review,
-          as: "reviews",
-        },
-        {
-          model: Doctor,
-          as: "doctors",
-        },
-      ],
+      where: whereClause,
+      attributes: {
+        include: [
+          [
+            literal(
+              `(
+                6371 * acos(
+                  cos(radians(${latitude || 0})) * 
+                  cos(radians(latitude)) * 
+                  cos(radians(longitude) - radians(${longitude || 0})) + 
+                  sin(radians(${latitude || 0})) * 
+                  sin(radians(latitude))
+                )
+              )`
+            ),
+            "distance",
+          ],
+        ],
+      },
+      order:
+        latitude && longitude ? literal("distance ASC") : [["name", "ASC"]],
     });
+
     res.json(hospitals);
   } catch (error) {
     console.error("Error fetching hospitals:", error);
@@ -49,15 +98,29 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// Create new hospital
-router.post("/", authMiddleware, async (req, res) => {
+// Create new hospital (admin only)
+router.post("/", authMiddleware, roleAuth(["admin"]), async (req, res) => {
   try {
-    const { name, address } = req.body;
+    const { name, address, latitude, longitude, adminId } = req.body;
+
+    // Validate coordinates
+    if (
+      latitude < -90 ||
+      latitude > 90 ||
+      longitude < -180 ||
+      longitude > 180
+    ) {
+      return res.status(400).json({ message: "Invalid coordinates" });
+    }
+
     const hospital = await Hospital.create({
       name,
       address,
-      averageRating: 0,
+      latitude,
+      longitude,
+      adminId,
     });
+
     res.status(201).json(hospital);
   } catch (error) {
     console.error("Error creating hospital:", error);
@@ -65,17 +128,29 @@ router.post("/", authMiddleware, async (req, res) => {
   }
 });
 
-// Update hospital
-router.put("/:id", authMiddleware, async (req, res) => {
+// Update hospital (admin only)
+router.put("/:id", authMiddleware, roleAuth(["admin"]), async (req, res) => {
   try {
-    const { name, address } = req.body;
+    const { name, address, latitude, longitude, adminId } = req.body;
+
+    // Validate coordinates if provided
+    if (latitude && (latitude < -90 || latitude > 90)) {
+      return res.status(400).json({ message: "Invalid latitude" });
+    }
+    if (longitude && (longitude < -180 || longitude > 180)) {
+      return res.status(400).json({ message: "Invalid longitude" });
+    }
+
     const hospital = await Hospital.findByPk(req.params.id);
     if (!hospital)
       return res.status(404).json({ message: "Hospital not found" });
 
     await hospital.update({
-      name: name || hospital.name,
-      address: address || hospital.address,
+      name,
+      address,
+      latitude,
+      longitude,
+      adminId,
     });
 
     res.json(hospital);
@@ -85,8 +160,8 @@ router.put("/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// Delete hospital
-router.delete("/:id", authMiddleware, async (req, res) => {
+// Delete hospital (admin only)
+router.delete("/:id", authMiddleware, roleAuth(["admin"]), async (req, res) => {
   try {
     const hospital = await Hospital.findByPk(req.params.id);
     if (!hospital)
@@ -132,3 +207,4 @@ router.post("/:id/reviews", authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
+//28.490762998613913, 77.10670419388701

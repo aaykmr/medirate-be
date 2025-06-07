@@ -17,10 +17,11 @@ const sequelize = new Sequelize({
 const db = {
   sequelize,
   Sequelize,
-  User: require("./User")(sequelize, Sequelize),
-  Hospital: require("./Hospital")(sequelize, Sequelize),
-  Doctor: require("./Doctor")(sequelize, Sequelize),
-  Review: require("./Review")(sequelize, Sequelize),
+  User: require("./user")(sequelize, Sequelize),
+  Hospital: require("./hospital")(sequelize, Sequelize),
+  Doctor: require("./doctor")(sequelize, Sequelize),
+  Review: require("./review")(sequelize, Sequelize),
+  Appointment: require("./appointment")(sequelize, Sequelize),
 };
 
 // Define associations
@@ -31,6 +32,16 @@ db.User.hasMany(db.Review, {
 db.Review.belongsTo(db.User, {
   foreignKey: "userId",
   as: "user",
+});
+
+// Hospital-Admin association
+db.User.hasMany(db.Hospital, {
+  foreignKey: "adminId",
+  as: "managedHospitals",
+});
+db.Hospital.belongsTo(db.User, {
+  foreignKey: "adminId",
+  as: "admin",
 });
 
 db.Hospital.hasMany(db.Doctor, {
@@ -58,6 +69,34 @@ db.Doctor.hasMany(db.Review, {
 db.Review.belongsTo(db.Doctor, {
   foreignKey: "doctorId",
   as: "doctor",
+});
+
+// Appointment associations
+db.User.hasMany(db.Appointment, {
+  foreignKey: "userId",
+  as: "appointments",
+});
+db.Appointment.belongsTo(db.User, {
+  foreignKey: "userId",
+  as: "patient",
+});
+
+db.Doctor.hasMany(db.Appointment, {
+  foreignKey: "doctorId",
+  as: "appointments",
+});
+db.Appointment.belongsTo(db.Doctor, {
+  foreignKey: "doctorId",
+  as: "doctor",
+});
+
+db.Hospital.hasMany(db.Appointment, {
+  foreignKey: "hospitalId",
+  as: "appointments",
+});
+db.Appointment.belongsTo(db.Hospital, {
+  foreignKey: "hospitalId",
+  as: "hospital",
 });
 
 module.exports = db;
