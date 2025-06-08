@@ -107,4 +107,34 @@ router.delete("/:id", [authMiddleware, roleAuth("admin")], async (req, res) => {
   }
 });
 
+// Submit a review for a doctor
+router.post("/:id/reviews", authMiddleware, async (req, res) => {
+  try {
+    const { rating, comment } = req.body;
+    const doctor = await Doctor.findByPk(req.params.id);
+    if (!doctor) return res.status(404).json({ message: "Doctor not found" });
+
+    const review = await Review.create({
+      userId: req.user.id,
+      doctorId: req.params.id,
+      rating,
+      comment,
+    });
+
+    // Calculate new average rating
+    const reviews = await Review.findAll({
+      where: { doctorId: req.params.id },
+    });
+
+    const newAverageRating =
+      reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+    await doctor.update({ averageRating: newAverageRating });
+
+    res.status(201).json(review);
+  } catch (error) {
+    console.error("Error submitting review:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 module.exports = router;
